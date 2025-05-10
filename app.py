@@ -1,14 +1,12 @@
 import streamlit as st
 import pandas as pd
 
-st.title("Excel Filter Tool")
+st.title("CSV Filter Tool")
 
 uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
 
-
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
-(uploaded_file)
     st.write("File uploaded successfully:")
     st.write(df.head())
 
@@ -34,4 +32,3 @@ if uploaded_file:
         st.download_button("Download CSV", data=csv, file_name="filtered_results.csv")
 
         st.button("Execute on Platform (Demo)")
-
