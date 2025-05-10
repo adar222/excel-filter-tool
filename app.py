@@ -3,7 +3,7 @@ import pandas as pd
 
 st.title("CSV Filter Tool")
 
-uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
+uploaded_file = st.file_uploader("Upload your file", type=["csv", "xlsx"])
 
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
