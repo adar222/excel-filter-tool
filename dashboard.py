@@ -1,88 +1,55 @@
 import streamlit as st
 import pandas as pd
-import random
+import numpy as np
 
 st.set_page_config(page_title="Revenue Impact Dashboard", layout="wide")
-st.title("📊 Revenue Impact Dashboard")
+
+st.title("📊 Revenue Impact Dashboard (≥ $10 Gross Revenue Change)")
 
 uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
 
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
+
+    # Normalize columns
     df.columns = [col.strip() for col in df.columns]
+    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+    df['Gross Revenue'] = df['Gross Revenue'].astype(str).str.replace("$", "").str.replace(",", "")
+    df['Gross Revenue'] = pd.to_numeric(df['Gross Revenue'], errors='coerce')
 
-    # Clean & convert
-    df['Date'] = pd.to_datetime(df['Date'])
-    df['Gross Revenue'] = df['Gross Revenue'].astype(str).str.replace("$", "").str.replace(",", "").astype(float)
-    df['CTR'] = df['CTR'].astype(str).str.replace("%", "").astype(float)
-
-    def clean_margin(value):
-        value = str(value).replace('%', '').replace(',', '').strip()
-        if value.startswith('(') and value.endswith(')'):
-            return -float(value.strip('()%'))
-        try:
-            return float(value)
-        except:
-            return None
-
-    df['Margin'] = df['Margin'].apply(clean_margin)
-    df['eCPM'] = df['eCPM'].astype(str).str.replace("$", "").astype(float)
-
-    # Define time windows
+    # Find the latest date
     latest_date = df['Date'].max()
-    window_1 = df[df['Date'] > latest_date - pd.Timedelta(days=3)]
-    window_2 = df[(df['Date'] <= latest_date - pd.Timedelta(days=3)) & (df['Date'] > latest_date - pd.Timedelta(days=6))]
 
-    # Aggregate
-    agg_cols = ['Gross Revenue', 'CTR', 'Margin', 'eCPM']
-    w1_agg = window_1.groupby('Package')[agg_cols].mean().rename(columns=lambda x: f"{x} (Recent)")
-    w2_agg = window_2.groupby('Package')[agg_cols].mean().rename(columns=lambda x: f"{x} (Prior)")
+    # Split into two windows: last 3 days vs previous 3 days
+    recent = df[df['Date'] > latest_date - pd.Timedelta(days=3)]
+    prior = df[(df['Date'] <= latest_date - pd.Timedelta(days=3)) & (df['Date'] > latest_date - pd.Timedelta(days=6))]
 
-    merged = w1_agg.merge(w2_agg, left_index=True, right_index=True)
+    # Aggregate revenue per package
+    recent_rev = recent.groupby("Package")["Gross Revenue"].sum().rename("Recent")
+    prior_rev = prior.groupby("Package")["Gross Revenue"].sum().rename("Prior")
+    merged = pd.concat([recent_rev, prior_rev], axis=1).fillna(0)
 
-    for col in agg_cols:
-        merged[f'{col} Change (%)'] = ((merged[f'{col} (Recent)'] - merged[f'{col} (Prior)']) / merged[f'{col} (Prior)']) * 100
+    # Compute $ and % change
+    merged["Change ($)"] = merged["Recent"] - merged["Prior"]
+    merged = merged[merged["Change ($)"].abs() >= 10]
 
-    # Filter insights
-    significant_changes = merged[
-        (abs(merged['Gross Revenue Change (%)']) >= 20) &
-        (merged['Gross Revenue (Recent)'] >= 10)
-    ]
+    merged["Change (%)"] = merged.apply(
+        lambda row: ((row["Change ($)"] / row["Prior"]) * 100) if row["Prior"] != 0 else np.nan,
+        axis=1
+    )
 
-    st.subheader("📌 Strategic Package Insights (3d vs 3d)")
+    # Format insights
+    insights = []
+    for idx, row in merged.iterrows():
+        trend = "increased" if row["Change ($)"] > 0 else "dropped"
+        percent = f"{abs(row['Change (%)']):.1f}%" if not np.isnan(row["Change (%)"]) else "N/A"
+        revenue = f"${abs(row['Change ($)']):,.0f}"
+        insights.append(f"📦 `{idx}` gross revenue {trend} by {percent} ({revenue}) over the last 3 days vs prior.")
 
-    if not significant_changes.empty:
-        for idx, row in significant_changes.iterrows():
-            pkg = idx
-            rev_change = row['Gross Revenue Change (%)']
-            ctr_change = row['CTR Change (%)']
-            margin_change = row['Margin Change (%)']
-            ecpm_change = row['eCPM Change (%)']
-
-            trend = "increased" if rev_change > 0 else "dropped"
-            insight = (
-                f"📦 Package `{pkg}` {trend} gross revenue by {abs(rev_change):.1f}% "
-                f"over the last 3 days vs prior 3. "
-                f"CTR: {ctr_change:+.1f}%, Margin: {margin_change:+.1f}%, eCPM: {ecpm_change:+.1f}%."
-            )
-            st.markdown(insight)
+    # Display
+    st.subheader("Insights: Packages with ≥ $10 day-over-day gross revenue change")
+    if insights:
+        for line in insights:
+            st.markdown(f"- {line}")
     else:
-        st.info("No significant revenue shifts found.")
-
-    # AI Chat box (optional demo)
-    st.subheader("💬 Ask AI About This Data (Demo)")
-    user_question = st.text_area("Type your question:")
-    if st.button("Ask AI"):
-        mock_responses = [
-            "The strongest performance came from `com.puzzle.star` with $5,200 in revenue.",
-            "Margin increased significantly on 2 high-volume apps.",
-            "CTR decreased for 40% of packages in the past 3 days.",
-        ]
-        ai_answer = random.choice(mock_responses)
-        st.success(f"AI (Demo): {ai_answer}")
-
-    # Optional link to optimization tool
-    st.markdown("[Go to Product Optimization Tool](https://your-streamlit-app-url.com/ProductOptimizationPage)")
-
-else:
-    st.info("Upload a CSV file to begin.")
+        st.info("No packages with ≥ $10 gross revenue change found.")
