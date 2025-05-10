@@ -10,9 +10,11 @@ if uploaded_file:
     st.write("File uploaded successfully:")
     st.write(df.head())
 
-    rpm_threshold = st.number_input("RPM threshold (≤)", value=0.001)
+    rpm_threshold = st.number_input("RPM threshold (≤)", value=0.001, format="%.4f")
     gross_revenue_max = st.number_input("Gross Revenue max (≤)", value=1.0)
-    request_ne_min = st.number_input("Request NE min (≥)", value=5000000)
+    request_ne_min = st.number_input("Request NE min (≥)", value=5000000, step=1000)
+    st.caption(f"Formatted Request NE min: {request_ne_min:,}")
+
 
     if st.button("Run Filter"):
         df['RPM'] = pd.to_numeric(df['RPM'], errors='coerce')
