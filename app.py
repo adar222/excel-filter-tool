@@ -6,7 +6,8 @@ st.title("Excel Filter Tool")
 uploaded_file = st.file_uploader("Upload your Excel file", type=["xlsx"])
 
 if uploaded_file:
-    df = pd.read_excel(uploaded_file)
+    df = pd.read_csv(uploaded_file)
+(uploaded_file)
     st.write("File uploaded successfully:")
     st.write(df.head())
 
