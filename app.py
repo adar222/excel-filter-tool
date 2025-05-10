@@ -32,11 +32,16 @@ if uploaded_file:
         for col in ['rpm', 'gross_revenue', 'request_ne']:
             if col in df.columns:
                 if df[col].dtype == 'object':
-            df[col] = df[col].str.replace('$', '', regex=False).str.replace(',', '', regex=False).str.strip()
-        df[col] = pd.to_numeric(df[col], errors='coerce')
-    else:
-        st.warning(f"Column '{col}' not found in file.")
-
+                    # Remove $ and commas, then strip spaces
+                    df[col] = (
+                        df[col]
+                        .str.replace('$', '', regex=False)
+                        .str.replace(',', '', regex=False)
+                        .str.strip()
+                    )
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+            else:
+                st.warning(f"Column '{col}' not found in file.")
 
         # Apply filter
         filtered_df = df[
