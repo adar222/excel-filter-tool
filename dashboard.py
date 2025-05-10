@@ -55,19 +55,40 @@ if uploaded_file:
 
     # Anomaly detection
     metrics = ['Gross Revenue', 'CTR', 'FillRate', 'Margin', 'eCPM', 'Request NE']
-    insights = []
     for metric in metrics:
         df[f'{metric} Change (%)'] = df.groupby(['Package', 'Placement', 'Ad format', 'Channel'])[metric].pct_change() * 100
 
-    threshold = 20
+    # Threshold filter
+    threshold_slider = st.slider("Minimum % Change to Show Insights", min_value=10, max_value=100, value=30, step=5)
+
+    # Generate insights
+    insights = []
+
     for idx, row in df.iterrows():
+        package_display = f"`{row['Package']}`"
+
         for metric in metrics:
             change = row.get(f'{metric} Change (%)')
-            if pd.notnull(change) and (abs(change) >= threshold):
-                arrow = "🔺" if change >= 0 else "🔻"
-                insight = f"{arrow} {metric} for {row['Package']} ({row['Ad format']}, {row['Placement']}, {row['Channel']}) changed {change:.1f}% on {row['Date'].strftime('%Y-%m-%d')} (value: {row[metric]:,.2f}, Gross Revenue: {row['Gross Revenue']:,.2f})"
-                insights.append(insight)
 
+            if (
+                pd.isnull(change)
+                or abs(change) < threshold_slider
+                or pd.isnull(row[metric])
+                or row[metric] == 0
+                or change in [float('inf'), float('-inf')]
+            ):
+                continue
+
+            arrow = "🔺" if change > 0 else "🔻"
+            insight = (
+                f"{arrow} {metric} for {package_display} "
+                f"({row['Ad format']}, {row['Placement']}, {row['Channel']}) "
+                f"{'increased' if change > 0 else 'decreased'} {abs(change):.1f}% on {row['Date'].strftime('%Y-%m-%d')} "
+                f"(value: {row[metric]:,.2f}, Gross Revenue: {row['Gross Revenue']:,.2f})"
+            )
+            insights.append(insight)
+
+    # Display insights
     st.subheader(f"Insights for {selected_advertiser} (Top {top_n} Packages)")
     if insights:
         for insight in insights:
@@ -75,25 +96,25 @@ if uploaded_file:
     else:
         st.info("No anomalies detected in top packages.")
 
-    # Download insights
+    # Download button
     insights_df = pd.DataFrame(insights, columns=['Insight'])
     csv_download = insights_df.to_csv(index=False).encode('utf-8')
     st.download_button("Download Insights CSV", data=csv_download, file_name="insights.csv")
 
-    # AI Chat Box (Demo)
+    # AI Chat box (demo)
     st.subheader("💬 Ask AI About This Data (Demo)")
     user_question = st.text_area("Type your question:")
     if st.button("Ask AI"):
         mock_responses = [
-            "This dataset contains 12 packages. Highest CTR was 1.45% on RTB_LARGE_BANNER.",
-            "The top revenue package is com.peoplefun.wordcross with $5,000 gross revenue.",
-            "Average FillRate across all packages is 8.4%.",
-            "Yesterday’s lowest margin was 12% on com.mobilityware.blockpuzzle."
+            "This dataset contains 12 packages. Highest CTR was 1.45%.",
+            "Top grossing package is `com.peoplefun.wordcross` with $5,000.",
+            "FillRate dropped significantly on 2025-05-07 for `1037773731`.",
+            "Margin is consistently over 20% for your top 3 packages."
         ]
         ai_answer = random.choice(mock_responses)
         st.success(f"AI (Demo): {ai_answer}")
 
-    # Link to Optimization Tool
+    # Navigation
     st.markdown("[Go to Product Optimization Tool](https://your-streamlit-app-url.com/ProductOptimizationPage)")
 
 else:
