@@ -18,8 +18,6 @@ if uploaded_file:
 
     st.write("File uploaded successfully:")
     st.write(df.head())
-    st.write("Column data types:")
-    st.write(df.dtypes)
 
     # Set threshold inputs
     rpm_threshold = st.number_input("RPM threshold (≤)", value=0.001, format="%.4f")
