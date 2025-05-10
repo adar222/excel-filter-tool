@@ -3,7 +3,8 @@ import pandas as pd
 
 st.title("Excel Filter Tool")
 
-uploaded_file = st.file_uploader("Upload your Excel file", type=["xlsx"])
+uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
+
 
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
